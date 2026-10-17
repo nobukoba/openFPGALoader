@@ -51,6 +51,7 @@ option(ENABLE_ESP_USB          "enable ESP32S3 cable (requires libUSB)"       ${
 option(ENABLE_JLINK            "enable JLink cable (requires libUSB)"         ${ENABLE_CABLE_ALL})
 option(ENABLE_DFU              "enable DFU support (requires libUSB)"         ${ENABLE_CABLE_ALL})
 option(ENABLE_FTDI_BASED_CABLE "enable cables based on FTDI (requires libFTDI" ${ENABLE_CABLE_ALL})
+option(ENABLE_DIGILENT_ADEPT "enable native Digilent Adept SDK JTAG backend (experimental)" OFF)
 option(ENABLE_GOWIN_GWU2X      "enable Gowin GWU2X interface"                 ${ENABLE_CABLE_ALL})
 option(ENABLE_SVF_JTAG         "enable SVF support"                           ${ENABLE_CABLE_ALL})
 option(ENABLE_USB_BLASTERI     "enable Altera USB Blaster I support"          ${ENABLE_CABLE_ALL})
@@ -651,6 +652,21 @@ add_executable(openFPGALoader
 	${OPENFPGALOADER_SOURCE}
 	${OPENFPGALOADER_HEADERS}
 )
+
+if (ENABLE_DIGILENT_ADEPT)
+	set(ADEPT_ROOT "" CACHE PATH "Digilent Adept SDK/runtime installation prefix")
+	find_path(ADEPT_INCLUDE_DIR dpcdecl.h HINTS ${ADEPT_ROOT} PATH_SUFFIXES inc include include/digilent)
+	find_library(ADEPT_DMGR_LIBRARY NAMES dmgr HINTS ${ADEPT_ROOT} PATH_SUFFIXES lib lib64 lib/x64 lib/x86_64 lib64/digilent/adept)
+	find_library(ADEPT_DJTG_LIBRARY NAMES djtg HINTS ${ADEPT_ROOT} PATH_SUFFIXES lib lib64 lib/x64 lib/x86_64 lib64/digilent/adept)
+	if (NOT ADEPT_INCLUDE_DIR OR NOT EXISTS "${ADEPT_INCLUDE_DIR}/dmgr.h" OR
+		NOT EXISTS "${ADEPT_INCLUDE_DIR}/djtg.h" OR NOT ADEPT_DMGR_LIBRARY OR NOT ADEPT_DJTG_LIBRARY)
+		message(FATAL_ERROR "Adept backend requires SDK headers and dmgr/djtg libraries for the target architecture. Set ADEPT_ROOT or ADEPT_INCLUDE_DIR, ADEPT_DMGR_LIBRARY and ADEPT_DJTG_LIBRARY.")
+	endif()
+	target_sources(openFPGALoader PRIVATE src/digilentAdept.cpp src/digilentAdept.hpp)
+	target_include_directories(openFPGALoader PRIVATE ${ADEPT_INCLUDE_DIR})
+	target_compile_definitions(openFPGALoader PRIVATE ENABLE_DIGILENT_ADEPT)
+	target_link_libraries(openFPGALoader ${ADEPT_DJTG_LIBRARY} ${ADEPT_DMGR_LIBRARY})
+endif()
 
 include_directories(
 	${LIBUSB_INCLUDE_DIRS}

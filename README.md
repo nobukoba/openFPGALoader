@@ -1,5 +1,10 @@
 # openFPGALoader
 
+Fork development: an experimental optional [Digilent Adept SDK backend](doc/vivado-driver-coexistence.md)
+is available as `-c digilent_adept` when built with `ENABLE_DIGILENT_ADEPT=ON`.
+It is intended for sequential use with Vivado's installed cable drivers;
+HS2/HS3 hardware and real Windows driver coexistence are not yet validated.
+
 <p align="right">
   <a title="Documentation" href="https://trabucayre.github.io/openFPGALoader"><img src="https://img.shields.io/website.svg?label=trabucayre.github.io%2FopenFPGALoader&longCache=true&style=flat-square&url=http%3A%2F%2Ftrabucayre.github.io%2FopenFPGALoader%2Findex.html&logo=GitHub"></a><!--
   -->

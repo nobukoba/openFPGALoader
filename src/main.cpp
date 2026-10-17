@@ -278,10 +278,18 @@ int main(int argc, char **argv)
 
 	if (!args.usb_serial_num.empty()) {
 		if (cable.type != MODE_FTDI_SERIAL && cable.type != MODE_FTDI_BITBANG &&
-			cable.type != MODE_ESP){
-			printError("Error: usb-serial-num param is for FTDI and esp32s3 cables.");
+			cable.type != MODE_ESP && cable.type != MODE_DIGILENT_ADEPT){
+			printError("Error: usb-serial-num param is for FTDI, Adept and esp32s3 cables.");
 			return EXIT_FAILURE;
 		}
+	}
+
+	if (cable.type == MODE_DIGILENT_ADEPT &&
+		(args.vid || args.pid || args.bus_addr || args.device_addr ||
+		 args.ftdi_channel != -1 || args.status_pin != -1 || args.invert_read_edge ||
+		 args.spi || (board && board->mode == COMM_SPI))) {
+		printError("Adept: USB VID/PID/bus overrides, FTDI pin/channel options, inverted read edge and direct SPI are unsupported.");
+		return EXIT_FAILURE;
 	}
 
 	if (args.vid != 0) {
@@ -958,12 +966,12 @@ int parse_opt(int argc, char **argv, struct arguments *args,
 				cxxopts::value<bool>(args->invert_read_edge))
 			("vid", "probe Vendor ID", cxxopts::value<uint16_t>(args->vid))
 			("pid", "probe Product ID", cxxopts::value<uint16_t>(args->pid))
-			("cable-index", "probe index (FTDI and cmsisDAP)",
+			("cable-index", "probe index (FTDI, Adept and cmsisDAP)",
 				cxxopts::value<int16_t>(args->cable_index))
 			("busdev-num",
 				"select a probe by it bus and device number (bus_num:device_addr)",
 				cxxopts::value<std::vector<std::string>>(bus_dev_num))
-			("usb-serial-num", "USB iSerial (FTDI chip serial number or ESP32 iSerialNumber substring)",
+			("usb-serial-num", "USB serial (FTDI/Adept exact match or ESP32 substring)",
 				cxxopts::value<std::string>(args->usb_serial_num))
 			("ftdi-serial", "FTDI chip serial number (Deprecated)",
 				cxxopts::value<std::string>(ftdi_serial))

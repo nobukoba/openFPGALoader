@@ -4,9 +4,11 @@
  */
 
 #include <cstring>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <unistd.h>
 #include <vector>
@@ -20,6 +22,9 @@
 #endif
 #include "display.hpp"
 #include "jtag.hpp"
+#ifdef ENABLE_DIGILENT_ADEPT
+#include "digilentAdept.hpp"
+#endif
 #ifdef USE_LIBFTDI
 #include "ftdiJtagBitbang.hpp"
 #include "ftdiJtagMPSSE.hpp"
@@ -109,6 +114,15 @@ Jtag::Jtag(const cable_t &cable, const jtag_pins_conf_t *pin_conf,
 			_ir_bits_before(0), _ir_bits_after(0), _curr_tdi(1)
 {
 	switch (cable.type) {
+	case MODE_DIGILENT_ADEPT:
+#ifdef ENABLE_DIGILENT_ADEPT
+		if (invert_read_edge)
+			throw std::runtime_error("Adept: --invert-read-edge is not supported.");
+		_jtag = new DigilentAdept(dev, serial, cable.config.index, clkHZ);
+#else
+		throw std::runtime_error("Adept backend was not enabled at build time (ENABLE_DIGILENT_ADEPT=ON).");
+#endif
+		break;
 	case MODE_ANLOGICCABLE:
 #ifdef ENABLE_ANLOGIC_CABLE
 		_jtag = new AnlogicCable(clkHZ);
@@ -225,12 +239,18 @@ Jtag::Jtag(const cable_t &cable, const jtag_pins_conf_t *pin_conf,
 		throw std::exception();
 	}
 
+	// Detection can fail after opening a cable. Release it even if this
+	// constructor throws (its destructor would not run in that case).
+	std::unique_ptr<JtagInterface> interface_guard(_jtag);
 	_tms_buffer = (unsigned char *)malloc(sizeof(unsigned char) * _tms_buffer_size);
 	if (_tms_buffer == nullptr)
 		throw std::runtime_error("Error: memory allocation failed");
+	std::unique_ptr<unsigned char, decltype(&free)> buffer_guard(_tms_buffer, &free);
 	memset(_tms_buffer, 0, _tms_buffer_size);
 
 	detectChain(32);
+	buffer_guard.release();
+	interface_guard.release();
 }
 
 Jtag::~Jtag()

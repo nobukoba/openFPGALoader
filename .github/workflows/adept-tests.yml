@@ -1,0 +1,48 @@
+name: Adept backend mock tests
+on:
+  push:
+    branches: [feature/vivado-driver-coexistence]
+  pull_request:
+    paths: ["src/digilentAdept.*", "src/jtag.cpp", "tests/adept/**", ".github/workflows/adept-tests.yml", "CMakeLists.txt"]
+  workflow_dispatch:
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test with sanitizers (mock API only)
+        run: |
+          cmake -S tests/adept -B build-adept-tests -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          cmake --build build-adept-tests --parallel 2
+          ctest --test-dir build-adept-tests --output-on-failure
+      - name: Compile full Xilinx CLI with mock SDK
+        run: |
+          cmake -S . -B build-adept-cli -DUSE_PKGCONFIG=OFF \
+            -DENABLE_CABLE_ALL=OFF -DENABLE_USB_SCAN=OFF -DENABLE_UDEV=OFF \
+            -DENABLE_VENDORS_ALL=OFF -DENABLE_XILINX_SUPPORT=ON \
+            -DENABLE_DIGILENT_ADEPT=ON \
+            -DADEPT_INCLUDE_DIR="$PWD/tests/adept/mock_sdk" \
+            -DADEPT_DMGR_LIBRARY="$PWD/build-adept-tests/libmock_adept.a" \
+            -DADEPT_DJTG_LIBRARY="$PWD/build-adept-tests/libmock_adept.a" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          cmake --build build-adept-cli --parallel 2
+          build-adept-cli/openFPGALoader --list-cables | grep digilent_adept
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: Native Windows build and tests (mock API only)
+        shell: msys2 {0}
+        run: |
+          cmake -S tests/adept -B build-adept-tests -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-adept-tests --parallel 2
+          ctest --test-dir build-adept-tests --output-on-failure
