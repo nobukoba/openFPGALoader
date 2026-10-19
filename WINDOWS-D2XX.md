@@ -1,6 +1,6 @@
 # Windows FT232H / HS3 with the existing FTDI driver
 
-This fork adds `USE_FTDI_D2XX=ON`. It uses the installed Windows x64 FTDI CDM driver through the system `ftd2xx.dll`, without installing, replacing, or restoring USB drivers. [日本語](WINDOWS-D2XX.ja.md)
+This fork adds `USE_FTDI_D2XX=ON`. It uses the installed Windows x64 FTDI CDM driver through the system `ftd2xx.dll`, without installing, replacing, or restoring USB drivers. [譌･譛ｬ隱枉(WINDOWS-D2XX.ja.md)
 
 Build in an MSYS2 UCRT64 shell after installing CMake, GCC, pkgconf, libftdi, libusb and zlib development packages:
 
@@ -18,7 +18,7 @@ Xilinx Platform Cable USB (03fd) uses a different vendor driver/API and is **not
 
 The DLL is loaded from System32 only. FTDI headers/constants and ordinary non-D2XX build dependencies still apply; the FTDI DLL/driver is not redistributed. Reads have a 3-second driver timeout; incomplete transfers stop without automatic programming retries. Persistent FPGA flash operations still use the existing openFPGALoader behavior: use the application's backup/readback checks rather than assuming an exit code proves power-on operation.
 
-Validation: Windows x64 cross-compilation and synthetic transport tests. Tests cover ambiguous selection before open, serial selection, changed identity after open, partial writes and handle cleanup. `--scan-usb` checks installed DLL enumeration without opening a device. On the development Windows machine, the installed FTDI driver enumerated two Digilent FT232H cables; no-serial detection stopped with both identifiers, and serial-selected HS3 JTAG detection returned Xilinx Kintex-7 XC7K160T (IDCODE 0x0364c093), exit 0. No driver was changed. BIT loading, MCS programming/readback and subsequent Vivado reuse remain unverified. No connected hardware is programmed as part of the build.
+Validation: Windows x64 cross-compilation and synthetic transport tests. Tests cover ambiguous selection before open, serial selection, changed identity after open, partial writes and handle cleanup. `--scan-usb` checks installed DLL enumeration without opening a device. On the development Windows machine, the installed FTDI driver enumerated two Digilent FT232H cables; no-serial detection stopped with both identifiers, and serial-selected HS3 JTAG detection returned Xilinx Kintex-7 XC7K160T (IDCODE 0x0364c093), exit 0. No driver was changed. Vivado 2023.2 subsequently opened the same HS3 and reported xc7k160t_0 without a driver change. BIT loading and MCS programming/readback remain unverified. No connected hardware is programmed as part of the build.
 
 Reference: https://ftdichip.com/document/programming-guides/
 
