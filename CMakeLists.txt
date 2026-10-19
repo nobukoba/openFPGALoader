@@ -27,6 +27,11 @@ else()
 	option(ENABLE_UDEV "use udev to search JTAG adapter from /dev/xx" ON)
 endif()
 
+option(USE_FTDI_D2XX "Use installed Windows FTDI CDM driver for FT232H/HS3" OFF)
+if(USE_FTDI_D2XX AND NOT WIN32)
+    message(FATAL_ERROR "USE_FTDI_D2XX requires Windows x64")
+endif()
+
 option(ENABLE_USB_SCAN "Enable USB Scan option" ON)
 
 ####################################################################################################
@@ -891,3 +896,14 @@ install(FILES
 	${GZ_FILES}
 	DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/openFPGALoader
 )
+
+# Optional driver-preserving FT232H transport. libftdi headers supply MPSSE
+# constants; D2XX is loaded from Windows System32 at runtime, not bundled.
+if(USE_FTDI_D2XX)
+    target_sources(openFPGALoader PRIVATE src/ftdi_d2xx.cpp)
+    target_compile_definitions(openFPGALoader PRIVATE USE_FTDI_D2XX=1)
+    if(FTDI_VAL LESS 105)
+        message(FATAL_ERROR "D2XX adapter requires libftdi >= 1.5 headers")
+    endif()
+endif()
+

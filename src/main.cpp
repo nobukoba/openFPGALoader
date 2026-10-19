@@ -183,7 +183,12 @@ int main(int argc, char **argv)
 		ProgressBar::setForceTerminalMode();
 
 	if (args.is_list_command) {
-		displaySupported(args);
+		try {
+			displaySupported(args);
+		} catch (const std::exception &error) {
+			printError(error.what());
+			return EXIT_FAILURE;
+		}
 		return EXIT_SUCCESS;
 	}
 
@@ -1359,10 +1364,13 @@ void displaySupported(const struct arguments &args)
 		std::cout << std::endl;
 	}
 
-#ifdef ENABLE_USB_SCAN
+#ifdef USE_FTDI_D2XX
+	if (args.scan_usb) d2xx_scan();
+#elif defined(ENABLE_USB_SCAN)
 	if (args.scan_usb) {
 		libusb_ll usb(0, 0, args.verbose);
 		usb.scan();
 	}
 #endif
 }
+

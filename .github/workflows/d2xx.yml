@@ -1,0 +1,28 @@
+name: FTDI driver-preserving backend
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  mock-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y libftdi1-dev libusb-1.0-0-dev
+      - run: g++ -std=c++17 -Itests/d2xx -I/usr/include/libftdi1 -I/usr/include/libusb-1.0 tests/d2xx/test_transport.cpp -o /tmp/test-d2xx && /tmp/test-d2xx
+  windows-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-libftdi mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-zlib
+      - run: cmake -S . -B build-d2xx -G Ninja -DUSE_FTDI_D2XX=ON -DENABLE_CABLE_ALL=OFF -DENABLE_FTDI_BASED_CABLE=ON -DENABLE_VENDORS_ALL=OFF -DENABLE_XILINX_SUPPORT=ON -DENABLE_UDEV=OFF -DENABLE_USB_SCAN=OFF && cmake --build build-d2xx
+      - run: ./build-d2xx/openFPGALoader.exe --help && ./build-d2xx/openFPGALoader.exe --list-cables
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openFPGALoader-windows-d2xx-experimental
+          path: build-d2xx/openFPGALoader.exe
+
