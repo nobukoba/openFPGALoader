@@ -61,6 +61,9 @@ FTDIpp_MPSSE::FTDIpp_MPSSE(const cable_t &cable, const std::string &dev,
 		throw std::runtime_error("_buffer malloc failed");
 	}
 
+#ifdef USE_FTDI_D2XX
+	d2xx_strings(_ftdi, _iproduct, _imanufacturer, _iserialnumber);
+#else
 	/* search for iProduct -> need to have
 	 * ftdi->usb_dev (libusb_device_handler) -> libusb_device ->
 	 * libusb_device_descriptor
@@ -116,6 +119,7 @@ FTDIpp_MPSSE::FTDIpp_MPSSE(const cable_t &cable, const std::string &dev,
 		printWarn(err);
 		memset(_iserialnumber,'\0', 200);
 	}
+#endif
 }
 
 FTDIpp_MPSSE::~FTDIpp_MPSSE()
@@ -123,6 +127,13 @@ FTDIpp_MPSSE::~FTDIpp_MPSSE()
 	char err[256];
 	int ret;
 
+#ifdef USE_FTDI_D2XX
+	// Always release the handle, including after a reset/configuration error.
+	ftdi_set_bitmode(_ftdi, 0, BITMODE_RESET);
+	close_device();
+	free(_buffer);
+	return;
+#endif
 	if (_bitmode == BITMODE_MPSSE) {
 		if (_cable.status_pin != -1) {
 			gpio_set(1 << _cable.status_pin);
@@ -206,8 +217,12 @@ void FTDIpp_MPSSE::open_device(const std::string &serial, unsigned int baudrate)
 /* cf. ftdi.c same function */
 void FTDIpp_MPSSE::ftdi_usb_close_internal()
 {
+#ifdef USE_FTDI_D2XX
+	ftdi_usb_close(_ftdi);
+#else
 	libusb_close(_ftdi->usb_dev);
 	_ftdi->usb_dev = NULL;
+#endif
 }
 
 int FTDIpp_MPSSE::close_device()
@@ -311,6 +326,7 @@ int FTDIpp_MPSSE::init(unsigned char latency, unsigned char bitmask_mode,
 		return ret;
 	}
 	if (mode == BITMODE_MPSSE) {
+#ifndef USE_FTDI_D2XX
 		unsigned char buf1[5];
 		if ((ret = ftdi_read_data(_ftdi, buf1, 5)) < 0) {
 			printError("fail to read data " +
@@ -318,6 +334,8 @@ int FTDIpp_MPSSE::init(unsigned char latency, unsigned char bitmask_mode,
 			return -1;
 		}
 
+#endif
+		// D2XX buffers were explicitly purged before entering MPSSE mode.
 		if (setClkFreq(_clkHZ) < 0)
 			return -1;
 
@@ -450,12 +468,16 @@ int FTDIpp_MPSSE::setClkFreq(uint32_t clkHZ)
 		fprintf(stderr, "Error: write for frequency return %d\n", ret);
 		return ret;
 	}
+#ifndef USE_FTDI_D2XX
+	// Setting the MPSSE divisor does not produce a response. libftdi uses
+	// this as an optional drain; a blocking D2XX read would time out.
 	if ((ret = ftdi_read_data(_ftdi, buffer, 4)) < 0) {
 		printError("selfClkFreq: fail to read: " +
 				std::string(ftdi_get_error_string(_ftdi)));
 		return ret;
 	}
 
+#endif
 	_clkHZ = real_freq;
 
 	return (int)real_freq;
@@ -553,7 +575,11 @@ int FTDIpp_MPSSE::mpsse_read(unsigned char *rx_buff, int len)
 
 	do {
 		n = ftdi_read_data(_ftdi, p, len);
-		if (n < 0) {
+		if (n < 0
+#ifdef USE_FTDI_D2XX
+			|| n == 0
+#endif
+		) {
 			fprintf(stderr, "Error: ftdi_read_data in %s", __func__);
 			return -1;
 		}
@@ -904,3 +930,4 @@ bool FTDIpp_MPSSE::search_with_dev(const std::string &device)
 	return false;
 }
 #endif
+

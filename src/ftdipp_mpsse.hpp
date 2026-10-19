@@ -6,6 +6,9 @@
 #ifndef _FTDIPP_MPSSE_H
 #define _FTDIPP_MPSSE_H
 #include <ftdi.h>
+#ifdef USE_FTDI_D2XX
+#include "ftdi_d2xx.hpp"
+#endif
 #include <string>
 
 #include "cable.hpp"
@@ -86,3 +89,4 @@ class FTDIpp_MPSSE {
 };
 
 #endif
+
